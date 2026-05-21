@@ -23,6 +23,12 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Login'),
+        leading: IconButton(
+          onPressed: () {
+            Navigator.pushReplacementNamed(context, '/');
+          },
+          icon: Icon(Icons.home),
+        ),
       ),
       body: Padding(
         padding: EdgeInsets.all(24),
@@ -82,26 +88,45 @@ class _LoginScreenState extends State<LoginScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () async {
-                      setState(() {
-                        _isLoading = true;
-                      });
-                      try {
-                        final login = await AppConfig().account.createEmailPasswordSession(
-                                email: _email.text, password: _password.text);
-                        
-                        if (login.userId.isNotEmpty && context.mounted) {
-                          showSnackBar(context, 'Login successful');
-                          Navigator.pushReplacementNamed(context, '/home');
-                        }
-                      } on AppwriteException catch (errorProvider) {
-                        showSnackBar(context, 'Login failed: $errorProvider');
-                      } finally {
-                        setState(() {
-                          _isLoading = false;
-                        });
-                      }
-                    },
+                    onPressed: _isLoading
+                        ? null
+                        : () async {
+                            setState(() {
+                              _isLoading = true;
+                            });
+
+                            try {
+                              final login = await AppConfig()
+                                  .account
+                                  .createEmailPasswordSession(
+                                    email: _email.text,
+                                    password: _password.text,
+                                  );
+
+                              if (login.userId.isNotEmpty && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Login Berhasil'),
+                                  ),
+                                );
+                                Navigator.pushReplacementNamed(
+                                    context, '/home');
+                              }
+                            } on AppwriteException catch (e) {
+                              setState(() {
+                                _isLoading = false;
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Login Error : $e'),
+                                ),
+                              );
+                            } finally {
+                              setState(() {
+                                _isLoading = false;
+                              });
+                            }
+                          },
                     child: _isLoading
                         ? CircularProgressIndicator()
                         : Text('Login'),
@@ -117,12 +142,5 @@ class _LoginScreenState extends State<LoginScreen> {
             )),
       ),
     );
-  }
-
-  void showSnackBar(BuildContext context, String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-      text,
-    )));
   }
 }

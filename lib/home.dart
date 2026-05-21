@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latihan5/app_config.dart';
 import 'package:latihan5/kategori.dart';
+import 'package:latihan5/produk.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,11 +20,9 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Text('Home'),
         );
       case 1:
-      return KategoriPage();
+        return KategoriPage();
       case 2:
-        return Center(
-          child: Text('Produk'),
-        );
+        return ProdukPage();
       case 3:
         return Center(
           child: Text('Transaksi'),
@@ -65,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   .deleteSession(sessionId: 'current');
                               Navigator.pushNamedAndRemoveUntil(
                                 context,
-                                '/login',
+                                '/',
                                 (route) => false,
                               );
                             },

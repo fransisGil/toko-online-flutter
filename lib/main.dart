@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:latihan5/home.dart';
 import 'package:latihan5/login.dart';
 import 'package:latihan5/register.dart';
+import 'package:latihan5/toko.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,8 +58,9 @@ class MainApp extends StatelessWidget {
           ),
         ),
       ),
-      initialRoute: '/login',
+      initialRoute: '/',
       routes: {
+        '/': (context) => TokoScreen(),
         '/login': (context) => LoginScreen(),
         '/register': (context) => RegisterScreen(),
         '/home': (context) => HomeScreen(),
