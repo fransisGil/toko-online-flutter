@@ -1,7 +1,6 @@
 import 'package:appwrite/appwrite.dart';
 import 'package:flutter/material.dart';
 import 'package:latihan5/app_config.dart';
-import 'package:latihan5/app_config.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
