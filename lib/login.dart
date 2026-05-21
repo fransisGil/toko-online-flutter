@@ -1,6 +1,7 @@
 import 'package:appwrite/appwrite.dart';
 import 'package:flutter/material.dart';
 import 'package:latihan5/app_config.dart';
+import 'package:latihan5/app_config.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -96,31 +97,23 @@ class _LoginScreenState extends State<LoginScreen> {
                             });
 
                             try {
-                              final login = await AppConfig()
-                                  .account
-                                  .createEmailPasswordSession(
-                                    email: _email.text,
-                                    password: _password.text,
-                                  );
-
-                              if (login.userId.isNotEmpty && context.mounted) {
+                              await handleLogin(context);          
+                            } on AppwriteException catch (e) {
+                              if (e.type == 'user_session_already_exists') {
+                                await Account(AppConfig().client).deleteSession(sessionId: 'current');
+                                handleLogin(context);
+                              }
+                              else {
+                                setState(() {
+                                  _isLoading = false;
+                                });
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Login Berhasil'),
+                                    content: Text('Login Error : $e'),
                                   ),
                                 );
-                                Navigator.pushReplacementNamed(
-                                    context, '/home');
                               }
-                            } on AppwriteException catch (e) {
-                              setState(() {
-                                _isLoading = false;
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Login Error : $e'),
-                                ),
-                              );
+
                             } finally {
                               setState(() {
                                 _isLoading = false;
@@ -142,5 +135,24 @@ class _LoginScreenState extends State<LoginScreen> {
             )),
       ),
     );
+  }
+
+  Future<void> handleLogin(BuildContext context) async {
+    final login = await AppConfig()
+        .account
+        .createEmailPasswordSession(
+          email: _email.text,
+          password: _password.text,
+        );
+    
+    if (login.userId.isNotEmpty && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login Berhasil'),
+        ),
+      );
+      Navigator.pushReplacementNamed(
+          context, '/home');
+    }
   }
 }

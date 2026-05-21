@@ -15,18 +15,21 @@ class _KategoriPageState extends State<KategoriPage> {
   void _getDataKategori() async {
     try {
       final data = await AppConfig().database.listDocuments(
-          databaseId: AppConfig().databaseID, collectionId: "category");
-      // forEach((element) => Kategori(id: element.$id, nama: element.data['nama']))
-      // List<Kategori> dataCategory = data.documents.cast<Kategori>();
-      List<Kategori> dataCategory = [];
+            databaseId: AppConfig().databaseID,
+            collectionId: 'category',
+          );
+
+      List<Kategori> dataKategori = [];
       for (var element in data.documents) {
-        dataCategory.add(Kategori(id: element.$id, nama: element.data['nama']));
+        dataKategori.add(Kategori(
+          id: element.$id,
+          nama: element.data['nama'],
+        ));
       }
       setState(() {
-        _dataKategori = dataCategory;
+        _dataKategori = dataKategori;
       });
     } on AppwriteException catch (e) {
-      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error Get Data Kategori : $e')));
     }
@@ -44,7 +47,6 @@ class _KategoriPageState extends State<KategoriPage> {
 
     var judulForm = '';
     var namaTombol = '';
-    bool isLoading = false;
 
     if (tipeAksi == 'tambah') {
       judulForm = 'Form Tambah Kategori';
@@ -52,6 +54,7 @@ class _KategoriPageState extends State<KategoriPage> {
     } else if (tipeAksi == 'edit') {
       judulForm = 'Form Edit Kategori';
       namaTombol = 'Update';
+      nama.text = kategori!.nama;
     } else if (tipeAksi == 'hapus') {
       judulForm = 'Form Hapus Kategori';
       namaTombol = 'Hapus';
@@ -68,7 +71,7 @@ class _KategoriPageState extends State<KategoriPage> {
             bottom: MediaQuery.of(context).viewInsets.bottom,
           ),
           child: Container(
-            padding: EdgeInsets.all(12),
+            padding: EdgeInsets.all(24),
             child: Form(
               key: formKey,
               child: Column(
@@ -78,7 +81,7 @@ class _KategoriPageState extends State<KategoriPage> {
                   Text(
                     judulForm,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -95,36 +98,100 @@ class _KategoriPageState extends State<KategoriPage> {
                     },
                   ),
                   Row(
-                    spacing: 5,
+                    spacing: 12,
                     children: [
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
                             try {
-                              setState(() {
-                                isLoading = true;
-                              });
                               if (tipeAksi == 'tambah') {
-                                await createCategory(nama, context);
+                                await AppConfig().database.createDocument(
+                                  databaseId: AppConfig().databaseID,
+                                  collectionId: 'kategori',
+                                  documentId: ID.unique(),
+                                  data: {
+                                    'nama': nama.text,
+                                  },
+                                ).whenComplete(
+                                  () {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              'Kategori berhasil disimpan'),
+                                        ),
+                                      );
+                                      _getDataKategori();
+                                      Navigator.pop(context);
+                                    }
+                                  },
+                                );
                               } else if (tipeAksi == 'edit') {
-                                await editCategory(kategori, nama, context);
+                                await AppConfig().database.updateDocument(
+                                  databaseId: AppConfig().databaseID,
+                                  collectionId: 'kategori',
+                                  documentId: kategori!.id,
+                                  data: {
+                                    'nama': nama.text,
+                                  },
+                                ).whenComplete(
+                                  () {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content:
+                                              Text('Kategori berhasil diedit'),
+                                        ),
+                                      );
+                                      _getDataKategori();
+                                      Navigator.pop(context);
+                                    }
+                                  },
+                                );
                               } else if (tipeAksi == 'hapus') {
-                                await deleteCategory(context);
+                                await AppConfig()
+                                    .database
+                                    .deleteDocument(
+                                      databaseId: AppConfig().databaseID,
+                                      collectionId: 'kategori',
+                                      documentId: kategori!.id,
+                                    )
+                                    .whenComplete(
+                                  () {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content:
+                                              Text('Kategori berhasil dihapus'),
+                                        ),
+                                      );
+                                      _getDataKategori();
+                                      Navigator.pop(context);
+                                    }
+                                  },
+                                );
                               }
-                              setState(() {
-                                isLoading = false;
-                              });
-                              _getDataKategori();
-                              Navigator.pop(context);
                             } on AppwriteException catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                      content: Text('Error encountered: $e')));
+                                    content: Text('Error CRUD Kategori : $e'),
+                                  ),
+                                );
+                              }
                             }
                           },
-                          child: isLoading
-                              ? CircularProgressIndicator()
-                              : Text(namaTombol),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: tipeAksi == 'tambah'
+                                ? Colors.blue
+                                : tipeAksi == 'edit'
+                                    ? Colors.green
+                                    : Colors.red,
+                          ),
+                          child: Text(namaTombol),
                         ),
                       ),
                       Expanded(
@@ -146,55 +213,12 @@ class _KategoriPageState extends State<KategoriPage> {
     );
   }
 
-  Future<void> deleteCategory(BuildContext context) async {
-    await AppConfig().database.deleteDocument(
-        databaseId: AppConfig().databaseID,
-        collectionId: 'kategori',
-        documentId: ID.unique(),
-      ).whenComplete(
-      () {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-                    'Data berhasil disimpan')));
-      },
-    );
-  }
-
-  Future<void> editCategory(Kategori? kategori, TextEditingController nama, BuildContext context) async {
-    await AppConfig().database.updateDocument(
-        databaseId: AppConfig().databaseID,
-        collectionId: 'kategori',
-        documentId: kategori!.id,
-        data: {'nama': nama.text}).whenComplete(
-      () =>
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-                    'Data berhasil diubah')))
-    );
-  }
-
-  Future<void> createCategory(TextEditingController nama, BuildContext context) async {
-    await AppConfig().database.createDocument(
-        databaseId: AppConfig().databaseID,
-        collectionId: 'kategori',
-        documentId: ID.unique(),
-        data: {'nama': nama.text}).whenComplete(
-      () {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-                    'Data berhasil disimpan')));
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       child: Column(
+        spacing: 12,
         children: [
           SizedBox(
             width: double.infinity,
@@ -227,7 +251,8 @@ class _KategoriPageState extends State<KategoriPage> {
                                 ),
                               ),
                               IconButton(
-                                onPressed: () => _tampilFormKategori('tipeAksi', kategori: kategori),
+                                onPressed: () => _tampilFormKategori('hapus',
+                                    kategori: kategori),
                                 icon: Icon(
                                   Icons.delete,
                                   color: Colors.red,

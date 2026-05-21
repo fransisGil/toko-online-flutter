@@ -63,9 +63,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     if (value!.isEmpty) {
                       return "Alamat Email wajib diisi.";
                     }
-                    if (!value.contains('@')) {
-                      return "Invalid email address";
-                    }
                     return null;
                   },
                 ),
@@ -107,25 +104,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               setState(() {
                                 _isLoading = true;
                               });
+
                               try {
                                 final user = await AppConfig().account.create(
-                                    userId: ID.unique(),
-                                    email: _email.text,
-                                    password: _password.text,
-                                    name: _nama.text);
-                                if (user.email.isNotEmpty && context.mounted) {
-                                  showSnackBar(
-                                      context, 'Registration Successful');
-                                  Navigator.pushReplacementNamed(
-                                      context, '/login');
+                                      userId: ID.unique(),
+                                      email: _email.text,
+                                      password: _password.text,
+                                      name: _nama.text,
+                                    );
+
+                                if (user.email.isNotEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Register berhasil'),
+                                    ),
+                                  );
+                                  Navigator.pushReplacementNamed(context, '/login');
                                 }
-                              } on AppwriteException catch (errorProvider) {
+                              } on AppwriteException catch (e) {
                                 setState(() {
                                   _isLoading = false;
                                 });
-                                // ignore: use_build_context_synchronously
-                                showSnackBar(context,
-                                    'Registration failed: $errorProvider');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Register error : $e'),
+                                  ),
+                                );
+                              } finally {
+                                setState(() {
+                                  _isLoading = false;
+                                });
                               }
                             }
                           },
@@ -144,11 +152,5 @@ class _RegisterScreenState extends State<RegisterScreen> {
             )),
       ),
     );
-  }
-
-  ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSnackBar(
-      BuildContext context, String text) {
-    return ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(text)));
   }
 }

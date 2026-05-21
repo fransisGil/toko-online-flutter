@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:appwrite/appwrite.dart';
 import 'package:flutter/material.dart';
 import 'package:latihan5/app_config.dart';
 import 'package:latihan5/kategori.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ProdukPage extends StatefulWidget {
   const ProdukPage({super.key});
@@ -18,7 +21,7 @@ class _ProdukPageState extends State<ProdukPage> {
     try {
       final data = await AppConfig().database.listDocuments(
             databaseId: AppConfig().databaseID,
-            collectionId: 'kategori',
+            collectionId: 'category',
           );
 
       List<Kategori> dataKategori = [];
@@ -42,7 +45,7 @@ class _ProdukPageState extends State<ProdukPage> {
     try {
       final data = await AppConfig().database.listDocuments(
             databaseId: AppConfig().databaseID,
-            collectionId: 'produk',
+            collectionId: 'Product',
           );
 
       List<Produk> dataProduk = [];
@@ -81,6 +84,7 @@ class _ProdukPageState extends State<ProdukPage> {
     final stok = TextEditingController();
     final deskripsi = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    XFile? fotoProduk;
 
     var kategori = _dataKategori.first.id;
     var judulForm = '';
@@ -116,235 +120,290 @@ class _ProdukPageState extends State<ProdukPage> {
       isDismissible: false,
       isScrollControlled: true,
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Container(
-            padding: EdgeInsets.all(24),
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                spacing: 12,
-                children: [
-                  Text(
-                    judulForm,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  TextFormField(
-                    controller: nama,
-                    readOnly: kunciIsian,
-                    decoration: InputDecoration(
-                      labelText: 'Nama Produk',
-                    ),
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return "Nama Produk wajib diisi.";
-                      }
-                      return null;
-                    },
-                  ),
-                  DropdownMenu(
-                    enabled: !kunciIsian,
-                    label: Text('Kategori'),
-                    initialSelection: kategori,
-                    width: double.infinity,
-                    onSelected: (value) {
-                      setState(() {
-                        kategori = value!;
-                      });
-                    },
-                    dropdownMenuEntries: _dataKategori
-                        .map(
-                          (e) => DropdownMenuEntry(value: e.id, label: e.nama),
-                        )
-                        .toList(),
-                  ),
-                  TextFormField(
-                    controller: harga,
-                    readOnly: kunciIsian,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Harga',
-                    ),
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return "Harga wajib diisi.";
-                      }
-                      return null;
-                    },
-                  ),
-                  TextFormField(
-                    controller: stok,
-                    readOnly: kunciIsian,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Stok',
-                    ),
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return "Stok wajib diisi.";
-                      }
-                      return null;
-                    },
-                  ),
-                  TextFormField(
-                    controller: deskripsi,
-                    readOnly: kunciIsian,
-                    decoration: InputDecoration(
-                      labelText: 'Deskripsi',
-                    ),
-                    minLines: 3,
-                    maxLines: 5,
-                  ),
-                  Row(
-                    spacing: 8,
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: kunciIsian ? null : () async {},
-                          label: Text('Foto Kamera'),
-                          icon: Icon(Icons.camera_alt, color: Colors.white,),
-                        ),
+        return StatefulBuilder(
+          builder: (context, setState) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: Container(
+              padding: EdgeInsets.all(24),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: 12,
+                  children: [
+                    Text(
+                      judulForm,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: kunciIsian ? null : () async {},
-                          label: Text('Foto Galeri'),
-                          icon: Icon(Icons.photo_album, color: Colors.white,),
-                        ),
+                    ),
+                    TextFormField(
+                      controller: nama,
+                      readOnly: kunciIsian,
+                      decoration: InputDecoration(
+                        labelText: 'Nama Produk',
                       ),
-                    ],
-                  ),
-                  Row(
-                    spacing: 8,
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            try {
-                              if (tipeAksi == 'tambah') {
-                                await AppConfig().database.createDocument(
-                                  databaseId: AppConfig().databaseID,
-                                  collectionId: 'produk',
-                                  documentId: ID.unique(),
-                                  data: {
-                                    'nama': nama.text,
-                                    'kategori_id': kategori,
-                                    'harga': double.parse(harga.text),
-                                    'stok': int.parse(stok.text),
-                                    'deskripsi': deskripsi.text,
-                                    'foto_id': '',
-                                    'foto_url': '',
+                      validator: (value) {
+                        if (value!.isEmpty) {
+                          return "Nama Produk wajib diisi.";
+                        }
+                        return null;
+                      },
+                    ),
+                    DropdownMenu(
+                      enabled: !kunciIsian,
+                      label: Text('Kategori'),
+                      initialSelection: kategori,
+                      width: double.infinity,
+                      onSelected: (value) {
+                        setState(() {
+                          kategori = value!;
+                        });
+                      },
+                      dropdownMenuEntries: _dataKategori
+                          .map(
+                            (e) =>
+                                DropdownMenuEntry(value: e.id, label: e.nama),
+                          )
+                          .toList(),
+                    ),
+                    TextFormField(
+                      controller: harga,
+                      readOnly: kunciIsian,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Harga',
+                      ),
+                      validator: (value) {
+                        if (value!.isEmpty) {
+                          return "Harga wajib diisi.";
+                        }
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      controller: stok,
+                      readOnly: kunciIsian,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Stok',
+                      ),
+                      validator: (value) {
+                        if (value!.isEmpty) {
+                          return "Stok wajib diisi.";
+                        }
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      controller: deskripsi,
+                      readOnly: kunciIsian,
+                      decoration: InputDecoration(
+                        labelText: 'Deskripsi',
+                      ),
+                      minLines: 3,
+                      maxLines: 5,
+                    ),
+                    fotoProduk != null
+                        ? Column(
+                            spacing: 12,
+                            children: [
+                              Image.file(File(fotoProduk!.path)),
+                              ElevatedButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      fotoProduk = null;
+                                    });
                                   },
-                                ).whenComplete(
-                                  () {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                            content: Text(
-                                                'Produk berhasil disimpan')),
-                                      );
-                                      _getDataProduk();
-                                      Navigator.pop(context);
-                                    }
-                                  },
-                                );
-                              } else if (tipeAksi == 'edit') {
-                                await AppConfig().database.updateDocument(
-                                  databaseId: AppConfig().databaseID,
-                                  collectionId: 'produk',
-                                  documentId: produk!.id,
-                                  data: {
-                                    'nama': nama.text,
-                                    'kategori_id': kategori,
-                                    'harga': double.parse(harga.text),
-                                    'stok': int.parse(stok.text),
-                                    'deskripsi': deskripsi.text,
-                                    'foto_id': '',
-                                    'foto_url': '',
-                                  },
-                                ).whenComplete(
-                                  () {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content:
-                                              Text('Produk berhasil diedit'),
-                                        ),
-                                      );
-                                      _getDataProduk();
-                                      Navigator.pop(context);
-                                    }
-                                  },
-                                );
-                              } else if (tipeAksi == 'hapus') {
-                                await AppConfig()
-                                    .database
-                                    .deleteDocument(
-                                      databaseId: AppConfig().databaseID,
-                                      collectionId: 'produk',
-                                      documentId: produk!.id,
-                                    )
-                                    .whenComplete(
-                                  () {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content:
-                                              Text('Produk berhasil dihapus'),
-                                        ),
-                                      );
-                                      _getDataProduk();
-                                      Navigator.pop(context);
-                                    }
-                                  },
-                                );
-                              }
-                            } on AppwriteException catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error CRUD Produk : $e'),
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red),
+                                  child: Text('Hapus foto'))
+                            ],
+                          )
+                        : Row(
+                            spacing: 8,
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: kunciIsian
+                                      ? null
+                                      : () async {
+                                          await getPhotoFrom(
+                                              ImageSource.camera, fotoProduk);
+                                        },
+                                  label: Text('Foto Kamera'),
+                                  icon: Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.white,
                                   ),
-                                );
-                              }
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: tipeAksi == 'tambah'
-                                ? Colors.blue
-                                : tipeAksi == 'edit'
-                                    ? Colors.green
-                                    : Colors.red,
+                                ),
+                              ),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: kunciIsian
+                                      ? null
+                                      : () async {
+                                          await getPhotoFrom(
+                                              ImageSource.gallery, fotoProduk);
+                                        },
+                                  label: Text('Foto Galeri'),
+                                  icon: Icon(
+                                    Icons.photo_album,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          child: Text(namaTombol),
+                    Row(
+                      spacing: 8,
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              try {
+                                if (tipeAksi == 'tambah') {
+                                  final fotoID = ID.unique();
+                                  await AppConfig().storage.createFile(
+                                      bucketId: AppConfig().storageID,
+                                      fileId: fotoID,
+                                      file: InputFile.fromPath(
+                                          path: fotoProduk!.path));
+                                  await AppConfig().database.createDocument(
+                                    databaseId: AppConfig().databaseID,
+                                    collectionId: 'Product',
+                                    documentId: ID.unique(),
+                                    data: {
+                                      'nama': nama.text,
+                                      'kategori_id': kategori,
+                                      'harga': double.parse(harga.text),
+                                      'stok': int.parse(stok.text),
+                                      'deskripsi': deskripsi.text,
+                                      'foto_id': fotoID,
+                                      'foto_url':
+                                          '${AppConfig().endpoint}/storage/buckets/${AppConfig().storageID}/files/$fotoID/view?project=${AppConfig().projectID}',
+                                    },
+                                  ).whenComplete(
+                                    () {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text(
+                                                  'Produk berhasil disimpan')),
+                                        );
+                                        _getDataProduk();
+                                        Navigator.pop(context);
+                                      }
+                                    },
+                                  );
+                                } else if (tipeAksi == 'edit') {
+                                  await AppConfig().database.updateDocument(
+                                    databaseId: AppConfig().databaseID,
+                                    collectionId: 'Product',
+                                    documentId: produk!.id,
+                                    data: {
+                                      'nama': nama.text,
+                                      'kategori_id': kategori,
+                                      'harga': double.parse(harga.text),
+                                      'stok': int.parse(stok.text),
+                                      'deskripsi': deskripsi.text,
+                                      'foto_id': '',
+                                      'foto_url': '',
+                                    },
+                                  ).whenComplete(
+                                    () {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content:
+                                                Text('Produk berhasil diedit'),
+                                          ),
+                                        );
+                                        _getDataProduk();
+                                        Navigator.pop(context);
+                                      }
+                                    },
+                                  );
+                                } else if (tipeAksi == 'hapus') {
+                                  await AppConfig()
+                                      .database
+                                      .deleteDocument(
+                                        databaseId: AppConfig().databaseID,
+                                        collectionId: 'Product',
+                                        documentId: produk!.id,
+                                      )
+                                      .whenComplete(
+                                    () {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content:
+                                                Text('Produk berhasil dihapus'),
+                                          ),
+                                        );
+                                        _getDataProduk();
+                                        Navigator.pop(context);
+                                      }
+                                    },
+                                  );
+                                }
+                              } on AppwriteException catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error CRUD Produk : $e'),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: tipeAksi == 'tambah'
+                                  ? Colors.blue
+                                  : tipeAksi == 'edit'
+                                      ? Colors.green
+                                      : Colors.red,
+                            ),
+                            child: Text(namaTombol),
+                          ),
                         ),
-                      ),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          child: Text('Batal'),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            child: Text('Batal'),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         );
       },
     );
+  }
+
+  Future<void> getPhotoFrom(ImageSource source, XFile? file) async {
+    final foto = await ImagePicker().pickImage(
+      source: source,
+      imageQuality: 100,
+      maxHeight: 300,
+      maxWidth: 300,
+    );
+
+    setState(() {
+      file = foto;
+    });
   }
 
   @override
@@ -384,25 +443,27 @@ class _ProdukPageState extends State<ProdukPage> {
                               children: [
                                 Text(produk.nama),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text('Harga'),
                                     Text('Stok'),
                                   ],
                                 ),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(produk.harga.toString()),
                                     Text(produk.stok.toString()),
                                   ],
                                 ),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     IconButton(
-                                      onPressed: () => _tampilFormProduk(
-                                          'edit',
+                                      onPressed: () => _tampilFormProduk('edit',
                                           produk: produk),
                                       icon: Icon(
                                         Icons.edit,

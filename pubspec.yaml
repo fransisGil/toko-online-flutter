@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   appwrite: ^17.1.0
+  image_picker: ^1.2.0
 
 dev_dependencies:
   flutter_test:
