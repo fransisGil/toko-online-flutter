@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:latihan5/checkout.dart';
 import 'package:latihan5/home.dart';
 import 'package:latihan5/login.dart';
 import 'package:latihan5/register.dart';
@@ -64,6 +65,7 @@ class MainApp extends StatelessWidget {
         '/login': (context) => LoginScreen(),
         '/register': (context) => RegisterScreen(),
         '/home': (context) => HomeScreen(),
+        '/checkout': (context) => CheckoutScreen(),
       },
     );
   }

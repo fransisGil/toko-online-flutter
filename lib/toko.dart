@@ -28,7 +28,7 @@ class _TokoScreenState extends State<TokoScreen> {
     try {
       final data = await AppConfig().database.listDocuments(
             databaseId: AppConfig().databaseID,
-            collectionId: 'kategori',
+            collectionId: 'category',
           );
 
       List<Kategori> dataKategori = [];
@@ -52,7 +52,7 @@ class _TokoScreenState extends State<TokoScreen> {
     try {
       final data = await AppConfig().database.listDocuments(
             databaseId: AppConfig().databaseID,
-            collectionId: 'produk',
+            collectionId: 'Product',
           );
 
       List<Produk> dataProduk = [];
@@ -251,6 +251,9 @@ class _TokoScreenState extends State<TokoScreen> {
             ElevatedButton.icon(
               onPressed: () {
                 //koding check out
+                Navigator.pushNamed(context, '/checkout', arguments: {
+                  'dataKeranjang': _dataKeranjang
+                });
               },
               label: Text('Check Out'),
               icon: Icon(
@@ -329,5 +332,5 @@ class Keranjang {
 
   void tambahQty() => jumlah++;
   void kurangQty() => jumlah > 1 ? jumlah-- : jumlah = 1;
-  double get subTotal => produk.harga * jumlah;
+  get subTotal => produk.harga * jumlah;
 }
