@@ -65,7 +65,7 @@ class MainApp extends StatelessWidget {
         '/login': (context) => LoginScreen(),
         '/register': (context) => RegisterScreen(),
         '/home': (context) => HomeScreen(),
-        '/checkout': (context) => CheckoutScreen(),
+        '/checkout': (context) => CheckOutScreen(),
       },
     );
   }
