@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:latihan5/app_config.dart';
 import 'package:latihan5/kategori.dart';
 import 'package:latihan5/produk.dart';
+import 'package:latihan5/transaksi.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,9 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 2:
         return ProdukPage();
       case 3:
-        return Center(
-          child: Text('Transaksi'),
-        );
+        return TransaksiPage();
       default:
         return Center(
           child: Text('Home'),
@@ -43,10 +42,6 @@ class _HomeScreenState extends State<HomeScreen> {
           PopupMenuButton(
             position: PopupMenuPosition.under,
             itemBuilder: (context) => [
-              PopupMenuItem(
-                onTap: () {},
-                child: Text('Ganti Password'),
-              ),
               PopupMenuItem(
                 onTap: () {
                   showDialog(

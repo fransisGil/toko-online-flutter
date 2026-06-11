@@ -14,6 +14,7 @@ class TokoScreen extends StatefulWidget {
 class _TokoScreenState extends State<TokoScreen> {
   int _indexMenu = 0;
   List<Produk> _dataProduk = [];
+  List<Produk> _dataProduk2 = [];
   List<Kategori> _dataKategori = [];
   List<Keranjang> _dataKeranjang = [];
 
@@ -28,7 +29,7 @@ class _TokoScreenState extends State<TokoScreen> {
     try {
       final data = await AppConfig().database.listDocuments(
             databaseId: AppConfig().databaseID,
-            collectionId: 'category',
+            collectionId: 'kategori',
           );
 
       List<Kategori> dataKategori = [];
@@ -52,7 +53,7 @@ class _TokoScreenState extends State<TokoScreen> {
     try {
       final data = await AppConfig().database.listDocuments(
             databaseId: AppConfig().databaseID,
-            collectionId: 'Product',
+            collectionId: 'produk',
           );
 
       List<Produk> dataProduk = [];
@@ -70,6 +71,7 @@ class _TokoScreenState extends State<TokoScreen> {
       }
       setState(() {
         _dataProduk = dataProduk;
+        _dataProduk2 = dataProduk;
       });
     } on AppwriteException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -90,9 +92,18 @@ class _TokoScreenState extends State<TokoScreen> {
                 (e) => DropdownMenuEntry(value: e.id, label: e.nama),
               )
               .toList(),
+          onSelected: (value) {
+            setState(() {
+              if (value!.isNotEmpty) {
+                _dataProduk = _dataProduk2.where((element) => element.kategoriId == value,).toList();
+              } else {
+                _dataProduk = _dataProduk2;
+              }
+            });
+          },
         ),
         Expanded(
-          child: GridView.builder(
+          child: _dataProduk.isEmpty ? Center(child: Text('Produk belum tersedia'),) : GridView.builder(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               childAspectRatio: 0.55,
@@ -160,9 +171,10 @@ class _TokoScreenState extends State<TokoScreen> {
           child: TextButton(
             onPressed: () {
               //koding hapus semua produk
-              setState(() {});
-              _dataKeranjang.clear();
-              _indexMenu = 0;
+              setState(() {
+                _dataKeranjang.clear();
+                _indexMenu = 0;
+              });
             },
             child: Text('Hapus Semua'),
           ),
@@ -217,9 +229,12 @@ class _TokoScreenState extends State<TokoScreen> {
                       TextButton(
                         onPressed: () {
                           //koding hapus produk
-                          _dataKeranjang.removeAt(index);
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text('Produk berhasil dihapus.')));
+                          setState(() {
+                            _dataKeranjang.removeAt(index);
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Produk berhasil dihapus.')),
+                          );
                         },
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.red,
@@ -239,20 +254,17 @@ class _TokoScreenState extends State<TokoScreen> {
             Column(
               children: [
                 Text('Total Keranjang'),
-                Text(
-                  getTotalKeranjang(),
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                Text(getTotalKeranjang(), style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),),
               ],
             ),
             ElevatedButton.icon(
-              onPressed: () {
+              onPressed: _dataKeranjang.isEmpty ? null : () {
                 //koding check out
                 Navigator.pushNamed(context, '/checkout', arguments: {
-                  'dataKeranjang': _dataKeranjang
+                  'dataKeranjang': _dataKeranjang,
                 });
               },
               label: Text('Check Out'),
@@ -268,11 +280,11 @@ class _TokoScreenState extends State<TokoScreen> {
 
   String getTotalKeranjang() {
     //koding get total keranjang
-    double sum = 0;
-    for (Keranjang keranjang in _dataKeranjang) {
-      sum += keranjang.subTotal;
+    double total = 0;
+    for (var element in _dataKeranjang) {
+      total += double.parse(element.subTotal.toString());
     }
-    return '$sum';
+    return total.toString();
   }
 
   @override

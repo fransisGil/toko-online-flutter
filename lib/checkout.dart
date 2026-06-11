@@ -1,11 +1,12 @@
 import 'dart:convert';
 
+import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/enums.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:latihan5/app_config.dart';
 import 'package:latihan5/toko.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:latihan5/webview.dart';
 
 class CheckOutScreen extends StatefulWidget {
   const CheckOutScreen({super.key});
@@ -21,9 +22,17 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   List _dataPengiriman = [];
 
   final _totalAkhir = TextEditingController();
+  final _nama = TextEditingController();
+  final _nohp = TextEditingController();
+  final _alamat = TextEditingController();
 
   final _asal = 513;
   int _tujuan = 0;
+  double _ongkir = 0;
+  String _ekspedisi = '';
+  List<Keranjang> _dataKeranjang = [];
+
+  final _formKey = GlobalKey<FormState>();
 
   Future<List> _fetchAPIOngkir(String endpoint,
       {String method = 'GET', Map? data}) async {
@@ -80,12 +89,12 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     });
   }
 
-  void _getShippingCost(String ekspedisi) async {
+  void _getShippingCost() async {
     final formData = {
       'origin': '$_asal',
       'destination': '$_tujuan',
       'weight': '1000',
-      'courier': ekspedisi,
+      'courier': _ekspedisi,
       'price': 'lowest',
     };
     final data = await _fetchAPIOngkir('calculate/district/domestic-cost',
@@ -99,32 +108,75 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     });
   }
 
-  Future<void> payWithMidtrans(double grossAmount) async {
-    try {
-      // 1. Panggil Appwrite Function untuk membuat token
-      final execution = await AppConfig().function.createExecution(
-        functionId: AppConfig().functionID,
-        body: jsonEncode({
-          'orderId': 'ORDER-${DateTime.now().millisecondsSinceEpoch}',
-          'grossAmount': grossAmount,
-        }),
-        path: '/generate-token',
-        method: ExecutionMethod.pOST,
-      );
+  Future<void> payWithMidtrans() async {
+    if (_nama.text.isNotEmpty && _alamat.text.isNotEmpty && _nohp.text.isNotEmpty && _totalAkhir.text.isNotEmpty) {
+      try {
+        final nomorTransaksi = 'ORDER-${DateTime.now().millisecondsSinceEpoch}';
+        final grossAmount = double.parse(_totalAkhir.text);
 
-      // 2. Parse response dan buka redirect URL
-      final response = jsonDecode(execution.responseBody);
-      
-      if (response['success'] == true) {
-        final String redirectUrl = response['redirect_url'];
-        
-        // Buka halaman pembayaran Midtrans di browser / webview
-        if (!await launchUrl(Uri.parse(redirectUrl), mode: LaunchMode.inAppWebView)) {
-          throw Exception('Tidak dapat membuka halaman pembayaran');
+        final execution = await AppConfig().function.createExecution(
+          functionId: AppConfig().functionID,
+          body: jsonEncode({
+            'orderId': nomorTransaksi,
+            'grossAmount': grossAmount,
+          }),
+          path: '/generate-token',
+          method: ExecutionMethod.pOST,
+        );
+
+        final response = jsonDecode(execution.responseBody);
+
+        if (response['success'] == true) {
+          final String redirectUrl = response['redirect_url'];
+          final bool? paymentFinished = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(
+                builder: (context) => WebViewScreen(
+                  snapUrl: redirectUrl,
+                  callbackUrl: 'https://example.com/payment-success',
+                ),
+              ));
+          if (paymentFinished == true) {
+            List itemPembelian = [];
+            for (var element in _dataKeranjang) {
+              itemPembelian.add({
+                'produk': element.produk.id,
+                'jumlah': element.jumlah,
+                'subtotal': element.subTotal,
+              });
+            }
+            await AppConfig().database.createDocument(
+              databaseId: AppConfig().databaseID, 
+              collectionId: 'transaksi', 
+              documentId: ID.unique(), 
+              data: {
+                'nomor_transaksi': nomorTransaksi,
+                'nama': _nama.text,
+                'nomor_telepon': _nohp.text,
+                'alamat': _alamat.text,
+                'total': grossAmount - _ongkir,
+                'ongkir': _ongkir,
+                'ekspedisi': _ekspedisi,
+                'item_transaksi': jsonEncode(itemPembelian),
+              }
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Pembayaran berhasil')),
+            );
+            Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false,);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Pembayaran dibatalkan atau belum selesai')),
+            );
+          }
         }
+      } catch (e) {
+        print('Gagal memproses pembayaran: $e');
       }
-    } catch (e) {
-      print('Gagal memproses pembayaran: $e');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Isian Belum Lengkap')),
+      );
     }
   }
 
@@ -141,6 +193,10 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     final totalKeranjang =
         dataKeranjang.fold(0.0, (pV, el) => pV + el.subTotal);
 
+    setState(() {
+      _dataKeranjang = dataKeranjang;
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Check Out'),
@@ -148,120 +204,151 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       body: Padding(
         padding: EdgeInsets.all(16),
         child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 12,
-            children: [
-              Text('Daftar Produk'),
-              DataTable(
-                columns: [
-                  DataColumn(label: Text('Produk')),
-                  DataColumn(label: Text('Qty'), numeric: true),
-                  DataColumn(label: Text('Sub Total'), numeric: true),
-                ],
-                rows: (dataKeranjang.map(
-                      (e) {
-                        return DataRow(cells: [
-                          DataCell(Text(e.produk.nama)),
-                          DataCell(Text(e.jumlah.toString())),
-                          DataCell(Text(e.subTotal.toString())),
-                        ]);
-                      },
-                    ).toList()) +
-                    [
-                      DataRow(
-                        cells: [
-                          DataCell(Text('')),
-                          DataCell(Text('Total')),
-                          DataCell(Text(totalKeranjang.toString())),
-                        ],
-                      ),
-                    ],
-              ),
-              DropdownMenu(
-                label: Text('Pilih Provinsi'),
-                width: double.infinity,
-                dropdownMenuEntries: _dataProvinsi
-                    .map(
-                      (e) => DropdownMenuEntry(value: e['id'], label: e['name']),
-                    )
-                    .toList(),
-                onSelected: (value) {
-                  _getCity(value!);
-                },
-              ),
-              DropdownMenu(
-                label: Text('Pilih Kota'),
-                width: double.infinity,
-                dropdownMenuEntries: _dataKota
-                    .map(
-                      (e) => DropdownMenuEntry(value: e['id'], label: e['name']),
-                    )
-                    .toList(),
-                onSelected: (value) {
-                  _getDistrict(value!);
-                },
-              ),
-              DropdownMenu(
-                label: Text('Pilih Kecamatan'),
-                width: double.infinity,
-                dropdownMenuEntries: _dataKecamatan
-                    .map(
-                      (e) => DropdownMenuEntry(value: e['id'], label: e['name']),
-                    )
-                    .toList(),
-                onSelected: (value) {
-                  setState(() {
-                    _tujuan = value!;
-                  });
-                },
-              ),
-              DropdownMenu(
-                label: Text('Pilih Ekspedisi'),
-                width: double.infinity,
-                dropdownMenuEntries: [
-                  DropdownMenuEntry(value: 'jne', label: 'JNE'),
-                  DropdownMenuEntry(value: 'jnt', label: 'JNT'),
-                  DropdownMenuEntry(value: 'sicepat', label: 'Sicepat'),
-                  DropdownMenuEntry(value: 'tiki', label: 'TIKI'),
-                  DropdownMenuEntry(value: 'pos', label: 'POS Indonesia'),
-                ],
-                onSelected: (value) {
-                  _getShippingCost(value!);
-                },
-              ),
-              DropdownMenu(
-                label: Text('Pilih Jenis Pengiriman'),
-                width: double.infinity,
-                dropdownMenuEntries: _dataPengiriman.map((e) {
-                  return DropdownMenuEntry(
-                      value: e['cost'],
-                      label:
-                          '${e['description']} (${e['service']}) - ETD: ${e['etd']} - ${e['cost']}');
-                }).toList(),
-                onSelected: (value) {
-                  setState(() {
-                    _totalAkhir.text =
-                        (totalKeranjang + double.parse(value.toString()))
-                            .toString();
-                  });
-                },
-              ),
-              TextFormField(
-                controller: _totalAkhir,
-                decoration: InputDecoration(
-                  labelText: 'Total Pembayaran',
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 12,
+              children: [
+                Text('Daftar Produk'),
+                DataTable(
+                  columns: [
+                    DataColumn(label: Text('Produk')),
+                    DataColumn(label: Text('Qty'), numeric: true),
+                    DataColumn(label: Text('Sub Total'), numeric: true),
+                  ],
+                  rows: (dataKeranjang.map(
+                        (e) {
+                          return DataRow(cells: [
+                            DataCell(Text(e.produk.nama)),
+                            DataCell(Text(e.jumlah.toString())),
+                            DataCell(Text(e.subTotal.toString())),
+                          ]);
+                        },
+                      ).toList()) +
+                      [
+                        DataRow(
+                          cells: [
+                            DataCell(Text('')),
+                            DataCell(Text('Total')),
+                            DataCell(Text(totalKeranjang.toString())),
+                          ],
+                        ),
+                      ],
                 ),
-                readOnly: true,
-              ),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => payWithMidtrans(double.parse(_totalAkhir.text)),
-                  child: Text('Proses Pembayaran'),
+                Text('Informasi Pengiriman'),
+                TextFormField(
+                  controller: _nama,
+                  decoration: InputDecoration(
+                    labelText: 'Nama Lengkap',
+                  ),
                 ),
-              ),
-            ],
+                TextFormField(
+                  controller: _nohp,
+                  decoration: InputDecoration(
+                    labelText: 'Nomor Handphone',
+                  ),
+                ),
+                TextFormField(
+                  controller: _alamat,
+                  decoration: InputDecoration(
+                    labelText: 'Alamat Lengkap',
+                  ),
+                  minLines: 3,
+                  maxLines: 5,
+                ),
+                DropdownMenu(
+                  label: Text('Pilih Provinsi'),
+                  width: double.infinity,
+                  dropdownMenuEntries: _dataProvinsi
+                      .map(
+                        (e) =>
+                            DropdownMenuEntry(value: e['id'], label: e['name']),
+                      )
+                      .toList(),
+                  onSelected: (value) {
+                    _getCity(value!);
+                  },
+                ),
+                DropdownMenu(
+                  label: Text('Pilih Kota'),
+                  width: double.infinity,
+                  dropdownMenuEntries: _dataKota
+                      .map(
+                        (e) =>
+                            DropdownMenuEntry(value: e['id'], label: e['name']),
+                      )
+                      .toList(),
+                  onSelected: (value) {
+                    _getDistrict(value!);
+                  },
+                ),
+                DropdownMenu(
+                  label: Text('Pilih Kecamatan'),
+                  width: double.infinity,
+                  dropdownMenuEntries: _dataKecamatan
+                      .map(
+                        (e) =>
+                            DropdownMenuEntry(value: e['id'], label: e['name']),
+                      )
+                      .toList(),
+                  onSelected: (value) {
+                    setState(() {
+                      _tujuan = value!;
+                    });
+                  },
+                ),
+                DropdownMenu(
+                  label: Text('Pilih Ekspedisi'),
+                  width: double.infinity,
+                  dropdownMenuEntries: [
+                    DropdownMenuEntry(value: 'jne', label: 'JNE'),
+                    DropdownMenuEntry(value: 'jnt', label: 'JNT'),
+                    DropdownMenuEntry(value: 'sicepat', label: 'Sicepat'),
+                    DropdownMenuEntry(value: 'tiki', label: 'TIKI'),
+                    DropdownMenuEntry(value: 'pos', label: 'POS Indonesia'),
+                  ],
+                  onSelected: (value) {
+                    setState(() {
+                      _ekspedisi = value!;
+                    });
+                    _getShippingCost();
+                  },
+                ),
+                DropdownMenu(
+                  label: Text('Pilih Jenis Pengiriman'),
+                  width: double.infinity,
+                  dropdownMenuEntries: _dataPengiriman.map((e) {
+                    return DropdownMenuEntry(
+                        value: e['cost'],
+                        label:
+                            '${e['description']} (${e['service']}) - ETD: ${e['etd']} - ${e['cost']}');
+                  }).toList(),
+                  onSelected: (value) {
+                    setState(() {
+                      _totalAkhir.text =
+                          (totalKeranjang + double.parse(value.toString()))
+                              .toString();
+                      _ongkir = double.parse(value.toString());
+                    });
+                  },
+                ),
+                TextFormField(
+                  controller: _totalAkhir,
+                  decoration: InputDecoration(
+                    labelText: 'Total Pembayaran',
+                  ),
+                  readOnly: true,
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: payWithMidtrans,
+                    child: Text('Proses Pembayaran'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

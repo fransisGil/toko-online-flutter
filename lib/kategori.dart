@@ -16,7 +16,7 @@ class _KategoriPageState extends State<KategoriPage> {
     try {
       final data = await AppConfig().database.listDocuments(
             databaseId: AppConfig().databaseID,
-            collectionId: 'category',
+            collectionId: 'kategori',
           );
 
       List<Kategori> dataKategori = [];
